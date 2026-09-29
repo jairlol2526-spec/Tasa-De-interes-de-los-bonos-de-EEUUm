@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatorio de la Curva del Tesoro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Fuentes Editoriales y Corporativas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        editorial: {
+                            bg: '#F7F7F5',       /* Papel / Hueso */
+                            text: '#172033',     /* Texto principal oscuro */
+                            muted: '#667085',    /* Texto secundario */
+                            navy: '#1F3A5F',     /* Azul institucional */
+                            blue: '#56728F',     /* Azul suave */
+                            accent: '#B38B59',   /* Dorado/Camel sutil */
+                            line: '#E6E6E1',     /* Líneas divisorias sutiles */
+                            red: '#8A2A2A',      /* Rojo sobrio financiero */
+                            green: '#2E664A'     /* Verde sobrio financiero */
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Inter"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F7F7F5;
+            color: #172033;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Navegación Editorial Pura */
+        .nav-year {
+            position: relative;
+            color: #667085;
+            transition: color 0.2s ease;
+            cursor: pointer;
+            padding-bottom: 6px;
+        }
+        
+        .nav-year:hover {
+            color: #172033;
+        }
+        
+        .nav-year.active {
+            color: #1F3A5F;
+            font-weight: 600;
+        }
+        
+        .nav-year.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: #1F3A5F;
+        }
+
+        /* Transiciones suaves de color para evitar parpadeos bruscos */
+        .smooth-color {
+            transition: color 0.4s ease-in-out;
+        }
+
+        canvas {
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans px-6 py-12 md:px-16 lg:px-24 max-w-[1500px] mx-auto">
+
+    <!-- HEADER EDITORIAL -->
+    <header class="mb-14 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+        <div>
+            <span class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-4 block">
+                Fixed Income / U.S. Treasury
+            </span>
+            <h1 class="font-serif text-3xl md:text-5xl font-medium text-editorial-text leading-tight mb-2">
+                Análisis de la Curva de Rendimiento
+            </h1>
+            <p class="font-sans font-light text-editorial-muted text-lg tracking-wide uppercase text-sm">
+                Tesoro de Estados Unidos &middot; 2019 &mdash; Marzo 2026
+            </p>
+        </div>
+        <div class="text-left md:text-right border-l md:border-l-0 md:border-r border-editorial-line pl-4 md:pl-0 md:pr-4">
+            <p class="text-[10px] font-semibold tracking-[0.15em] text-editorial-muted uppercase mb-1">Última Observación</p>
+            <p class="font-mono text-sm font-medium text-editorial-navy tracking-tight uppercase" id="header-date">31 DIC 2019</p>
+        </div>
+    </header>
+
+    <!-- NAVEGACIÓN TEMPORAL (Puro Texto) -->
+    <nav class="mb-16 border-b border-editorial-line pb-2 overflow-x-auto no-scrollbar">
+        <ul class="flex items-center gap-x-8 md:gap-x-10 text-xs font-sans tracking-[0.1em] uppercase whitespace-nowrap min-w-max" id="timeline-container">
+            <!-- Items generados por JS -->
+        </ul>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-24">
+        
+        <!-- Columna Izquierda: Tasas Protagonistas y Gráfico (8/12) -->
+        <section class="lg:col-span-8 flex flex-col w-full">
+            
+            <!-- Ruta de Tasas Exactas (Con padding alineado al gráfico) -->
+            <div class="flex justify-between items-end border-b border-editorial-line pb-6 mb-8 px-1 md:px-4">
+                <div class="text-center group">
+                    <p class="text-[10px] font-semibold text-editorial-muted mb-2 tracking-[0.15em] uppercase">3 Meses</p>
+                    <p id="val-3m" class="font-mono text-xl md:text-2xl lg:text-3xl text-editorial-text smooth-color">0.00%</p>
+                </div>
+                <div class="text-center group">
+                    <p class="text-[10px] font-semibold text-editorial-muted mb-2 tracking-[0.15em] uppercase">1 Año</p>
+                    <p id="val-1y" class="font-mono text-xl md:text-2xl lg:text-3xl text-editorial-text smooth-color">0.00%</p>
+                </div>
+                <div class="text-center group">
+                    <p class="text-[10px] font-semibold text-editorial-muted mb-2 tracking-[0.15em] uppercase">5 Años</p>
+                    <p id="val-5y" class="font-mono text-xl md:text-2xl lg:text-3xl text-editorial-text smooth-color">0.00%</p>
+                </div>
+                <div class="text-center group">
+                    <p class="text-[10px] font-semibold text-editorial-muted mb-2 tracking-[0.15em] uppercase">10 Años</p>
+                    <p id="val-10y" class="font-mono text-xl md:text-2xl lg:text-3xl text-editorial-text smooth-color">0.00%</p>
+                </div>
+                <div class="text-center group">
+                    <p class="text-[10px] font-semibold text-editorial-muted mb-2 tracking-[0.15em] uppercase">30 Años</p>
+                    <p id="val-30y" class="font-mono text-xl md:text-2xl lg:text-3xl text-editorial-text smooth-color">0.00%</p>
+                </div>
+            </div>
+
+            <!-- Gráfico de la Curva (Tensión Cero) -->
+            <div class="relative w-full h-[350px] md:h-[400px]">
+                <canvas id="mainCurveChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Columna Derecha: Diagnóstico Estructural (4/12) -->
+        <aside class="lg:col-span-4 lg:pl-10 flex flex-col justify-between w-full">
+            
+            <div class="mb-12">
+                <p class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-4">
+                    Diagnóstico Estructural
+                </p>
+                <h2 id="curve-status" class="font-serif text-3xl md:text-4xl mb-4 tracking-tight smooth-color text-editorial-navy">
+                    Ascendente
+                </h2>
+                <p id="curve-desc" class="font-sans text-sm text-editorial-text leading-relaxed min-h-[60px]">
+                    Descripción de la forma de la curva...
+                </p>
+            </div>
+
+            <div class="mt-auto space-y-6">
+                <p class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-4 border-b border-editorial-line pb-2">
+                    Diferenciales de Rendimiento (Spreads)
+                </p>
+                
+                <div class="flex justify-between items-end border-b border-editorial-line/50 pb-3">
+                    <span class="font-sans text-xs text-editorial-muted uppercase tracking-wider">Spread 10Y &minus; 3M</span>
+                    <span id="spread-10y" class="font-mono text-lg font-medium smooth-color text-editorial-navy">+0.00 pp</span>
+                </div>
+                
+                <div class="flex justify-between items-end border-b border-editorial-line/50 pb-3">
+                    <span class="font-sans text-xs text-editorial-muted uppercase tracking-wider">Spread 30Y &minus; 3M</span>
+                    <span id="spread-30y" class="font-mono text-lg font-medium smooth-color text-editorial-navy">+0.00 pp</span>
+                </div>
+                
+                <!-- Nueva sección dinámica: Impacto Corporativo -->
+                <div class="mt-6 border-t border-editorial-line/50 pt-4">
+                    <p class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-2">
+                        Impacto Corporativo
+                    </p>
+                    <p id="corp-desc" class="font-sans text-[12px] text-editorial-text leading-relaxed smooth-color min-h-[60px]">
+                        Cargando impacto corporativo...
+                    </p>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <!-- SECCIÓN HISTÓRICA LÍNEA DE TIEMPO COMPLETA -->
+    <section class="border-t border-editorial-line pt-14 mb-16 w-full">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+                <h3 class="font-sans text-xs font-semibold text-editorial-muted mb-1 tracking-[0.2em] uppercase">Evolución de tasas clave</h3>
+                <p class="font-serif text-2xl text-editorial-text">Trayectoria Histórica (3M vs 10Y vs 30Y)</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-6 font-sans text-xs text-editorial-text uppercase tracking-wider">
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-editorial-accent"></span> 3 Meses</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-editorial-navy"></span> 10 Años</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-editorial-blue"></span> 30 Años</div>
+            </div>
+        </header>
+
+        <div class="relative w-full h-[320px]">
+            <canvas id="historicalChart"></canvas>
+        </div>
+    </section>
+
+    <!-- FOOTER Y METODOLOGÍA -->
+    <footer class="mt-auto border-t border-editorial-line pt-10 pb-12 flex flex-col md:flex-row justify-between items-start gap-12 font-sans w-full">
+        <div class="max-w-xl">
+            <p class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-3">Fuente</p>
+            <p class="text-xs text-editorial-text mb-2 font-medium">U.S. Department of the Treasury &mdash; Daily Treasury Par Yield Curve Rates.</p>
+            <p class="text-xs text-editorial-muted">Elaboración propia con base en observaciones de cierre de período.</p>
+        </div>
+        <div class="max-w-md md:text-right">
+            <p class="text-[10px] font-semibold tracking-[0.2em] text-editorial-muted uppercase mb-3">Nota Metodológica</p>
+            <p class="text-xs text-editorial-muted leading-relaxed">
+                La comparación entre 3M, 10Y y 30Y permite identificar cambios en la pendiente de la curva y analizar cómo evolucionó la estructura de plazos durante 2019–marzo 2026.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        const periods = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', 'Marzo 2026'];
+        const maturities = ['3 Meses', '1 Año', '5 Años', '10 Años', '30 Años'];
+        
+        // Base de datos oficial con impacto corporativo enfocado en los SPREADS (Punto 2.b)
+        const db = {
+            '2019': { 
+                yields: [1.55, 1.59, 1.69, 1.92, 2.39], 
+                date: "31 DIC 2019",
+                type: "Ascendente", 
+                desc: "Periodo de estabilidad económica previo a la pandemia. La pendiente positiva refleja la prima de riesgo de vencimiento normal exigida por los inversionistas a largo plazo.",
+                corpDesc: "El spread es positivo. Una empresa aprovecha la tasa a 3 meses para inventario (activos circulantes), pero emite deuda a largo plazo para activos fijos, pagando el diferencial para fijar su costo y no arriesgarse a futuras subidas."
+            },
+            '2020': { 
+                yields: [0.09, 0.10, 0.36, 0.93, 1.65], 
+                date: "31 DIC 2020",
+                type: "Ascendente", 
+                desc: "La actividad económica cayó bruscamente por la pandemia. La FED redujo su tasa de política casi a 0% para estabilizar la economía, desplomando el rendimiento a 3 meses a 0.09%.",
+                corpDesc: "El spread sigue positivo, pero con tasas en cero. Las empresas paralizadas usan el crédito a corto plazo ultra barato solo para sobrevivir (capital de trabajo), posponiendo cualquier emisión de deuda a largo plazo para expansión."
+            },
+            '2021': { 
+                yields: [0.06, 0.39, 1.26, 1.52, 1.90], 
+                date: "31 DIC 2021",
+                type: "Ascendente", 
+                desc: "La FED mantuvo las tasas de corto plazo bajas, pero el mercado anticipó una recuperación económica y mayor inflación, lo que empezó a elevar los rendimientos a largo plazo.",
+                corpDesc: "El diferencial se amplía. Al anticipar inflación, los directores financieros deciden emitir bonos a largo plazo para amarrar la tasa (1.52%) antes de que la política monetaria de la FED encarezca el dinero."
+            },
+            '2022': { 
+                yields: [4.42, 4.73, 3.99, 3.88, 3.97], 
+                date: "30 DIC 2022",
+                type: "Invertida", 
+                desc: "La inflación interanual se disparó al 9.1%. La FED respondió endureciendo su política y subiendo bruscamente las tasas de corto plazo para frenar los precios, invirtiendo la curva.",
+                corpDesc: "El spread se reduce hasta volverse negativo. Las empresas que cometieron el error de financiar activos fijos con préstamos a corto plazo ahora enfrentan costos de renovación altísimos, perdiendo rentabilidad y arriesgando la quiebra."
+            },
+            '2023': { 
+                yields: [5.40, 4.79, 3.84, 3.88, 4.03], 
+                date: "29 DIC 2023",
+                type: "Invertida", 
+                desc: "El bono a 3 meses tocó su pico de 5.40%. El mercado mantuvo la curva invertida al anticipar una desaceleración económica y futuros recortes de tasas que aún no llegaban.",
+                corpDesc: "El diferencial negativo llega a su punto crítico. El corto plazo es carísimo para capital de trabajo, pero las empresas evitan amarrarse a 10 años esperando que las tasas bajen pronto. Consecuencia: paralización masiva de la inversión."
+            },
+            '2024': { 
+                yields: [4.37, 4.16, 4.38, 4.58, 4.78], 
+                date: "31 DIC 2024",
+                type: "Ascendente", 
+                desc: "La inflación comenzó a moderarse y el PIB creció un 2.8%. Las tasas largas se mantuvieron elevadas porque el mercado seguía incorporando riesgos de inflación, devolviendo la pendiente positiva a los spreads.",
+                corpDesc: "Los spreads vuelven a ser positivos. Las empresas logran reestructurar sus deudas, pero como la tasa base a 10 años sigue alta, mantienen una política conservadora y evalúan con lupa si es rentable apalancarse."
+            },
+            '2025': { 
+                yields: [3.67, 3.48, 3.73, 4.18, 4.84], 
+                date: "31 DIC 2025",
+                type: "Ascendente", 
+                desc: "La inflación bajó al 2.7%, dando espacio a la FED para iniciar el recorte de tasas de corto plazo. La curva consolidó su estructura ascendente típica.",
+                corpDesc: "La ampliación del spread positivo devuelve la normalidad corporativa. Se fomenta nuevamente financiar los activos circulantes a corto plazo y dejar el largo plazo estrictamente para activos fijos, asegurando costos constantes."
+            },
+            'Marzo 2026': { 
+                yields: [3.70, 3.68, 3.92, 4.30, 4.88], 
+                date: "31 MAR 2026",
+                type: "Ascendente", 
+                desc: "Las tasas se mantienen altas por presiones inflacionarias (3.4%) y riesgos geopolíticos en el Estrecho de Ormuz, reflejando expectativas de que la FED mantendrá una política restrictiva.",
+                corpDesc: "El spread se amplía a +0.60 pp (10Y). Las empresas mantienen la cautela: usan el corto plazo estrictamente para capital de trabajo, buscando mitigar riesgos ante un costo de endeudamiento que sigue siendo elevado a nivel histórico."
+            }
+        };
+
+        let currentYearId = '2019';
+        let mainChartObj = null;
+        let histChartObj = null;
+
+        // Estilo Global de Chart.js
+        Chart.defaults.font.family = '"Inter", sans-serif';
+        Chart.defaults.color = '#667085';
+        Chart.defaults.scale.grid.color = '#E6E6E1';
+
+        function initDashboard() {
+            buildTimeline();
+            initCharts();
+            selectPeriod('2019');
+        }
+
+        function buildTimeline() {
+            const container = document.getElementById('timeline-container');
+            periods.forEach(year => {
+                const li = document.createElement('li');
+                li.className = 'nav-year';
+                li.innerText = year.toUpperCase();
+                li.dataset.year = year;
+                li.onclick = () => selectPeriod(year);
+                container.appendChild(li);
+            });
+        }
+
+        function formatSpread(value) {
+            const fixed = Math.abs(value).toFixed(2);
+            return value < 0 ? `&minus;${fixed} pp` : `+${fixed} pp`;
+        }
+
+        function selectPeriod(year) {
+            currentYearId = year;
+            const data = db[year];
+            
+            // 1. Navegación (Highlight activo)
+            document.querySelectorAll('.nav-year').forEach(el => {
+                el.classList.toggle('active', el.dataset.year === year);
+            });
+
+            // Determinar colores basados en la forma de la curva
+            const isInvertedOrMixed = data.type.toLowerCase().includes("invertida") || data.type.toLowerCase().includes("mixta");
+            const themeColorClass = isInvertedOrMixed ? 'text-editorial-red' : 'text-editorial-navy';
+            const themeColorHex = isInvertedOrMixed ? '#8A2A2A' : '#1F3A5F';
+
+            // 2. Textos e Información
+            document.getElementById('header-date').innerText = data.date;
+            
+            const statusEl = document.getElementById('curve-status');
+            statusEl.innerText = data.type;
+            statusEl.className = `font-serif text-3xl md:text-4xl mb-4 tracking-tight smooth-color ${themeColorClass}`;
+            
+            document.getElementById('curve-desc').innerText = data.desc;
+            
+            // Textos dinámicos del impacto corporativo
+            document.getElementById('corp-desc').innerText = data.corpDesc;
+
+            // 3. Tasas Protagonistas
+            const ids = ['val-3m', 'val-1y', 'val-5y', 'val-10y', 'val-30y'];
+            ids.forEach((id, idx) => {
+                const el = document.getElementById(id);
+                el.innerText = data.yields[idx].toFixed(2) + '%';
+            });
+
+            // 4. Cálculos Dinámicos de Spreads
+            const sp10 = data.yields[3] - data.yields[0];
+            const sp30 = data.yields[4] - data.yields[0];
+
+            const sp10El = document.getElementById('spread-10y');
+            const sp30El = document.getElementById('spread-30y');
+            
+            sp10El.innerHTML = formatSpread(sp10);
+            sp30El.innerHTML = formatSpread(sp30);
+            
+            sp10El.className = `font-mono text-lg font-medium smooth-color ${sp10 < 0 ? 'text-editorial-red' : 'text-editorial-navy'}`;
+            sp30El.className = `font-mono text-lg font-medium smooth-color ${sp30 < 0 ? 'text-editorial-red' : 'text-editorial-navy'}`;
+
+            // 5. Actualizar Gráfico Principal
+            if (mainChartObj) {
+                mainChartObj.data.datasets[0].data = data.yields;
+                mainChartObj.data.datasets[0].borderColor = themeColorHex;
+                mainChartObj.data.datasets[0].pointBackgroundColor = themeColorHex;
+                mainChartObj.update();
+            }
+
+            // 6. Sincronizar marcador en Gráfico Histórico
+            if (histChartObj) {
+                const index = periods.indexOf(year);
+                histChartObj.data.datasets.forEach(dataset => {
+                    dataset.pointRadius = periods.map((_, i) => i === index ? 5 : 0);
+                    dataset.pointBorderWidth = periods.map((_, i) => i === index ? 3 : 0);
+                });
+                histChartObj.update();
+            }
+        }
+
+        function initCharts() {
+            // 1. GRÁFICO PRINCIPAL DE LA CURVA (Tensión Cero)
+            const ctxMain = document.getElementById('mainCurveChart').getContext('2d');
+            mainChartObj = new Chart(ctxMain, {
+                type: 'line',
+                data: {
+                    labels: maturities,
+                    datasets: [{
+                        label: 'Rendimiento',
+                        data: db['2019'].yields,
+                        borderColor: '#1F3A5F',
+                        borderWidth: 1.5,
+                        pointBackgroundColor: '#1F3A5F',
+                        pointBorderColor: '#F7F7F5',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointHoverBackgroundColor: '#B38B59',
+                        pointHoverBorderColor: '#F7F7F5',
+                        fill: false,
+                        tension: 0
+                    }]
+                },
+                options: {
+                    layout: {
+                        padding: { left: 16, right: 16 }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 600, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#172033',
+                            titleFont: { family: '"Inter", sans-serif', size: 11, weight: '500' },
+                            bodyFont: { family: '"JetBrains Mono", monospace', size: 13 },
+                            padding: 12,
+                            cornerRadius: 2,
+                            displayColors: false,
+                            callbacks: {
+                                title: (context) => context[0].label,
+                                label: (context) => {
+                                    const yValue = context.parsed.y.toFixed(2) + '%';
+                                    const dateStr = db[currentYearId].date;
+                                    return `Tasa: ${yValue}   |   ${dateStr}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 6,
+                            grid: { color: '#E6E6E1', drawBorder: false },
+                            ticks: { 
+                                font: { family: '"JetBrains Mono", monospace', size: 10 }, 
+                                padding: 12, 
+                                callback: v => v.toFixed(2) + '%' 
+                            }
+                        },
+                        x: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { display: false } 
+                        }
+                    },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+
+            // 2. GRÁFICO HISTÓRICO LÍNEO
+            const ctxHist = document.getElementById('historicalChart').getContext('2d');
+            const data3M = periods.map(p => db[p].yields[0]);
+            const data10Y = periods.map(p => db[p].yields[3]);
+            const data30Y = periods.map(p => db[p].yields[4]);
+
+            histChartObj = new Chart(ctxHist, {
+                type: 'line',
+                data: {
+                    labels: periods.map(p => p.toUpperCase()),
+                    datasets: [
+                        { label: '3 Meses', data: data3M, borderColor: '#B38B59', borderWidth: 1.5, tension: 0, pointBackgroundColor: '#B38B59' },
+                        { label: '10 Años', data: data10Y, borderColor: '#1F3A5F', borderWidth: 2, tension: 0, pointBackgroundColor: '#1F3A5F' },
+                        { label: '30 Años', data: data30Y, borderColor: '#56728F', borderWidth: 1.5, tension: 0, pointBackgroundColor: '#56728F', borderDash: [4, 2] }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    animation: { duration: 600, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#172033',
+                            bodyColor: '#172033',
+                            borderColor: '#E6E6E1',
+                            borderWidth: 1,
+                            cornerRadius: 2,
+                            bodyFont: { family: '"JetBrains Mono", monospace' },
+                            titleFont: { family: '"Inter", sans-serif', weight: '600' },
+                            padding: 10,
+                            callbacks: {
+                                label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            min: 0, max: 6, 
+                            grid: { color: '#E6E6E1', drawBorder: false }, 
+                            ticks: { font: { family: '"JetBrains Mono", monospace', size: 10 }, padding: 12, callback: v => v.toFixed(2) + '%' } 
+                        },
+                        x: { 
+                            grid: { display: false, drawBorder: false }, 
+                            ticks: { font: { family: '"Inter", sans-serif', size: 10 }, color: '#667085', padding: 8, maxRotation: 45, minRotation: 0 } 
+                        }
+                    }
+                }
+            });
+        }
+
+        // Iniciar dashboard al cargar
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
